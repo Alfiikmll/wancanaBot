@@ -6,6 +6,7 @@ import makeWASocket, {
 } from "@whiskeysockets/baileys";
 
 import pino from "pino";
+import { createServer } from "node:http";
 import qrcode from "qrcode-terminal";
 
 import { handleMessage } from "./bot.js";
@@ -233,5 +234,36 @@ async function startBot() {
     },
   );
 }
+
+const PORT =
+  Number(process.env.PORT) || 10000;
+
+const server = createServer(
+  (req, res) => {
+    res.writeHead(200, {
+      "Content-Type":
+        "text/plain; charset=utf-8",
+    });
+
+    if (req.url === "/health") {
+      res.end("Wancana Bot OK");
+      return;
+    }
+
+    res.end(
+      "Wancana Bot sedang berjalan.",
+    );
+  },
+);
+
+server.listen(
+  PORT,
+  "0.0.0.0",
+  () => {
+    console.log(
+      `HTTP server berjalan di port ${PORT}`,
+    );
+  },
+);
 
 startBot();
