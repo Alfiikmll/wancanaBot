@@ -146,7 +146,12 @@ async function startBot() {
 
   sock.ev.on(
     "messages.upsert",
-    async ({ messages }) => {
+    async ({ messages, type }) => {
+      // Abaikan pesan lama (sinkronisasi riwayat) supaya ingatan tidak banjir
+      if (type !== "notify") {
+        return;
+      }
+
       for (const message of messages) {
         if (
           !message?.message ||
@@ -223,12 +228,26 @@ async function startBot() {
           videoContext?.mentionedJid ||
           [];
 
+        // Nama tampilan pengirim (untuk konteks chat AI)
+        const senderName =
+          message.pushName ||
+          "Seseorang";
+
+        // Pengirim pesan yang di-reply (untuk deteksi "reply ke bot")
+        const quotedJid =
+          contextInfo?.participant ||
+          imageContext?.participant ||
+          videoContext?.participant ||
+          null;
+
         await handleMessage(
           sock,
           messageText,
           chatId,
           userId,
           mentionedJid,
+          senderName,
+          quotedJid,
         );
       }
     },

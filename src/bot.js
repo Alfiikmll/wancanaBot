@@ -62,7 +62,19 @@ getGachaRodList,
 
 import {
   handleAIMessage,
+  handleAutoJoin,
 } from "./handlers/aiHandlers.js";
+
+import {
+  clearChatMemory,
+  rememberMessage,
+} from "./AI/chatMemory.js";
+
+import {
+  decideAutoJoin,
+  getChatMode,
+  setChatMode,
+} from "./AI/autoJoin.js";
 
 import {
   areJidsSameUser,
@@ -90,15 +102,44 @@ function isBotMentioned(
   );
 }
 
-function removeLeadingMention(
-  text,
-) {
-  return text
-    .replace(
-      /^@\d+\s*/,
-      "",
-    )
+function getBotNumbers(sock) {
+  return [
+    sock.user?.id,
+    sock.user?.lid,
+    sock.user?.phoneNumber,
+  ]
+    .filter(Boolean)
+    .map((jid) => jid.split("@")[0].split(":")[0]);
+}
+
+// Bersihkan teks sebelum disimpan ke memori / dikirim ke AI:
+// buang "/ai", ganti mention bot jadi "Wancana", mention lain jadi "@user".
+function cleanMessageText(sock, text) {
+  let result = text.replace(/^\/ai\b\s*/i, "");
+
+  for (const number of getBotNumbers(sock)) {
+    result = result.replaceAll(`@${number}`, "Wancana");
+  }
+
+  return result
+    .replace(/@\d{5,}/g, "@user")
+    .replace(/\s+/g, " ")
     .trim();
+}
+
+// Daftar admin bot di .env: BOT_ADMINS=628123456789,628987654321
+// Kalau kosong, semua orang boleh mengubah mode.
+function isBotAdmin(userId) {
+  const admins = (process.env.BOT_ADMINS || "")
+    .split(",")
+    .map((number) => number.replace(/\D/g, ""))
+    .filter(Boolean);
+
+  if (admins.length === 0) {
+    return true;
+  }
+
+  return admins.includes(userId.split("@")[0]);
 }
 
 export async function handleMessage(
@@ -107,6 +148,8 @@ export async function handleMessage(
   chatId,
   userId,
   mentionedJid = [],
+  senderName = "Seseorang",
+  quotedJid = null,
 ) {
   if (
     !messageText ||
@@ -128,6 +171,81 @@ export async function handleMessage(
         url: getMenuImagePath(),
       },
       caption: menuCaption,
+    });
+
+    return;
+  }
+
+  // =========================================================
+  // MODE AI GRUP (/aimode) & RESET INGATAN (/aireset)
+  // =========================================================
+
+  if (
+    messageText === "/aimode" ||
+    messageText.startsWith("/aimode ") ||
+    messageText === "/aireset"
+  ) {
+    if (!isGroup) {
+      await sock.sendMessage(chatId, {
+        text: "⚠️ Perintah ini hanya untuk grup.",
+      });
+
+      return;
+    }
+
+    if (messageText === "/aireset") {
+      if (!isBotAdmin(userId)) {
+        await sock.sendMessage(chatId, {
+          text: "⛔ Hanya admin bot yang bisa menghapus ingatan.",
+        });
+
+        return;
+      }
+
+      await clearChatMemory(chatId);
+
+      await sock.sendMessage(chatId, {
+        text: "🧹 Ingatan chat grup ini sudah dihapus.",
+      });
+
+      return;
+    }
+
+    const argument = messageText
+      .replace("/aimode", "")
+      .trim()
+      .toLowerCase();
+
+    if (argument === "tag" || argument === "auto") {
+      if (!isBotAdmin(userId)) {
+        await sock.sendMessage(chatId, {
+          text: "⛔ Hanya admin bot yang bisa mengubah mode AI.",
+        });
+
+        return;
+      }
+
+      await setChatMode(chatId, argument);
+
+      await sock.sendMessage(chatId, {
+        text:
+          argument === "auto"
+            ? "🤖 Mode *AUTO*: Wancana akan menjawab kalau dipanggil dan kadang ikut nimbrung sendiri 😎"
+            : "🤖 Mode *TAG*: Wancana hanya menjawab kalau di-tag, dibalas, atau pakai /ai 🤫",
+      });
+
+      return;
+    }
+
+    const currentMode = await getChatMode(chatId);
+
+    await sock.sendMessage(chatId, {
+      text:
+        `🤖 *Mode AI grup ini: ${currentMode.toUpperCase()}*\n\n` +
+        "• tag → AI hanya jawab kalau di-tag / dibalas / /ai\n" +
+        "• auto → AI juga ikut nimbrung sendiri\n\n" +
+        "Ubah: /aimode tag atau /aimode auto\n" +
+        "Hapus ingatan: /aireset",
     });
 
     return;
@@ -868,19 +986,13 @@ if (
 // JAWABAN TEBAK GAMBAR
 // =========================================================
 
-// Cek apakah bot benar-benar di-mention.
-// Function isBotMentioned di atas menangani ID bot,
-// termasuk user JID dan LID.
 const botMentioned =
   isBotMentioned(
     sock,
     mentionedJid,
   );
 
-// Kalau grup sedang punya game,
-// pesan biasa dianggap sebagai jawaban.
-// Tapi kalau user sedang mention bot,
-// biarkan masuk ke AI.
+// Kalau grup sedang punya game, pesan biasa dianggap jawaban.
 if (
   isGroup &&
   !messageText.startsWith("/") &&
@@ -898,81 +1010,95 @@ if (
     return;
   }
 }
+
   // =========================================================
   // AI
   // =========================================================
 
-  const mentioned =
-    botMentioned;
-
-  /*
-   * Fallback:
-   * /ai pertanyaan
-   */
   const isAICommand =
     messageText === "/ai" ||
-    messageText.startsWith(
-      "/ai ",
-    );
+    messageText.startsWith("/ai ");
 
-  const aiCommandText =
-    messageText
-      .replace(
-        "/ai",
-        "",
-      )
-      .trim();
-
-  /*
-   * GRUP:
-   * - mention nomor bot -> AI
-   * - /ai pertanyaan -> AI
-   *
-   * PRIVATE:
-   * - chat biasa -> AI
-   * - /ai pertanyaan -> AI
-   *
-   * Mengetik "@Wancana Bot" manual
-   * TANPA mention asli tidak akan memicu AI.
-   */
-  const shouldUseAI =
-    (isGroup &&
-      (mentioned ||
-        isAICommand)) ||
-    (!isGroup &&
-      !messageText.startsWith(
-        "/",
-      )) ||
-    (!isGroup &&
-      isAICommand);
-
-  if (!shouldUseAI) {
+  // Perintah lain yang diawali "/" bukan obrolan.
+  if (
+    messageText.startsWith("/") &&
+    !isAICommand
+  ) {
     return;
   }
 
-  const userMessage =
-    isAICommand
-      ? aiCommandText
-      : removeLeadingMention(
-          messageText,
-        );
+  // Membalas (reply) pesan bot juga dianggap memanggil bot.
+  const isReplyToBot =
+    quotedJid
+      ? isBotMentioned(sock, [quotedJid])
+      : false;
 
-  if (!userMessage) {
-    await sock.sendMessage(
+  // DIMINTA: chat pribadi, tag bot, /ai, atau reply ke bot.
+  const isDirect =
+    !isGroup ||
+    botMentioned ||
+    isAICommand ||
+    isReplyToBot;
+
+  const cleanText =
+    cleanMessageText(
+      sock,
+      messageText,
+    );
+
+  if (!cleanText) {
+    if (isDirect) {
+      await sock.sendMessage(
+        chatId,
+        {
+          text:
+            "🤖 Tag nomor Wancana Bot atau gunakan:\n/ai pertanyaan",
+        },
+      );
+    }
+
+    return;
+  }
+
+  // Semua obrolan (bukan perintah) direkam sebagai ingatan.
+  await rememberMessage(
+    chatId,
+    "user",
+    senderName,
+    cleanText,
+  );
+
+  if (isDirect) {
+    await handleAIMessage(
+      sock,
       chatId,
-      {
-        text:
-          "🤖 Tag nomor Wancana Bot atau gunakan:\n/ai pertanyaan",
-      },
+      senderName,
     );
 
     return;
   }
 
-  await handleAIMessage(
+  // IKUT NIMBRUNG: hanya di grup dengan mode "auto".
+  const mode =
+    await getChatMode(chatId);
+
+  if (mode !== "auto") {
+    return;
+  }
+
+  const decision =
+    decideAutoJoin(
+      chatId,
+      cleanText,
+    );
+
+  if (!decision.join) {
+    return;
+  }
+
+  await handleAutoJoin(
     sock,
     chatId,
-    userId,
-    userMessage,
+    senderName,
   );
 }
