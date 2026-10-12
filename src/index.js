@@ -10,6 +10,15 @@ import { createServer } from "node:http";
 import qrcode from "qrcode-terminal";
 
 import { handleMessage } from "./bot.js";
+import { resolveMemberName } from "./AI/members.js";
+import { handleStyleCommand } from "./AI/chatStyle.js";
+import { buildImageSource } from "./AI/mediaLoader.js";
+import { runWithRequestContext } from "./AI/requestContext.js";
+import {
+  startIcebreaker,
+  stopIcebreaker,
+  touchChatActivity,
+} from "./AI/icebreaker.js";
 
 function normalizePhoneJid(jid) {
   if (!jid) {
@@ -118,9 +127,14 @@ async function startBot() {
         console.log(
           "Wancana Bot berhasil terhubung!",
         );
+
+        // Mulai pengecek grup sepi (bot membuka topik sendiri)
+        startIcebreaker(sock);
       }
 
       if (connection === "close") {
+        stopIcebreaker();
+
         const statusCode =
           lastDisconnect?.error
             ?.output?.statusCode;
@@ -166,6 +180,14 @@ async function startBot() {
         if (!chatId) {
           continue;
         }
+
+        // Abaikan status/story WhatsApp dan broadcast
+        if (chatId.endsWith("@broadcast")) {
+          continue;
+        }
+
+        // Catat aktivitas grup (untuk mendeteksi grup sepi)
+        touchChatActivity(chatId);
 
         const userId =
           getUserIdFromMessage(
@@ -228,10 +250,12 @@ async function startBot() {
           videoContext?.mentionedJid ||
           [];
 
-        // Nama tampilan pengirim (untuk konteks chat AI)
+        // Nama pengirim dikenali dari NOMOR TELEPON (belajar otomatis)
         const senderName =
-          message.pushName ||
-          "Seseorang";
+          await resolveMemberName(
+            userId,
+            message.pushName,
+          );
 
         // Pengirim pesan yang di-reply (untuk deteksi "reply ke bot")
         const quotedJid =
@@ -240,14 +264,42 @@ async function startBot() {
           videoContext?.participant ||
           null;
 
-        await handleMessage(
-          sock,
-          messageText,
-          chatId,
-          userId,
-          mentionedJid,
-          senderName,
-          quotedJid,
+        // Perintah gaya bicara AI per grup (/aigaya)
+        if (messageText.startsWith("/aigaya")) {
+          const handled =
+            await handleStyleCommand(
+              sock,
+              chatId,
+              userId,
+              messageText.trim(),
+            );
+
+          if (handled) {
+            continue;
+          }
+        }
+
+        // Gambar yang menempel (dikirim bersama pesan / yang di-reply).
+        // Baru diunduh kalau bot memang akan menjawab pesan ini.
+        const media =
+          buildImageSource(
+            sock,
+            message,
+            chatId,
+          );
+
+        await runWithRequestContext(
+          { userId, media },
+          () =>
+            handleMessage(
+              sock,
+              messageText,
+              chatId,
+              userId,
+              mentionedJid,
+              senderName,
+              quotedJid,
+            ),
         );
       }
     },

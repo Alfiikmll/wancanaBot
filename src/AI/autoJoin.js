@@ -5,7 +5,7 @@ import { initAiTables } from "./chatMemory.js";
 const cfg = AI_CONFIG.autoJoin;
 
 const modeCache = new Map(); // chatId -> "tag" | "auto"
-const states = new Map(); // chatId -> { sinceBot, lastBotAt, autoTimes }
+const states = new Map(); // chatId -> { sinceBot, lastBotAt, autoTimes, boostUntil }
 
 // ---------------------------------------------------------
 // Mode per grup: "tag" (hanya kalau diminta) / "auto" (nimbrung)
@@ -78,6 +78,7 @@ function getState(chatId) {
       sinceBot: cfg.minMessagesBetween,
       lastBotAt: 0,
       autoTimes: [],
+      boostUntil: 0,
     });
   }
 
@@ -90,6 +91,14 @@ export function markBotSpoke(chatId) {
 
   state.lastBotAt = Date.now();
   state.sinceBot = 0;
+}
+
+/**
+ * Naikkan peluang nimbrung sementara (dipakai setelah bot membuka topik),
+ * supaya balasan member tidak dicuekin.
+ */
+export function boostAutoJoin(chatId, minutes) {
+  getState(chatId).boostUntil = Date.now() + minutes * 60 * 1000;
 }
 
 /**
@@ -122,16 +131,21 @@ export function decideAutoJoin(chatId, text) {
   }
 
   const triggered = triggerRegex ? triggerRegex.test(text) : false;
+  const boosted = now < state.boostUntil;
 
-  if (!triggered && state.sinceBot < cfg.minMessagesBetween) {
+  if (!triggered && !boosted && state.sinceBot < cfg.minMessagesBetween) {
     return { join: false, reason: "belum cukup pesan baru" };
   }
 
-  const chance = triggered
+  let chance = triggered
     ? cfg.triggerChance
     : text.includes("?")
       ? cfg.questionChance
       : cfg.baseChance;
+
+  if (boosted) {
+    chance = Math.max(chance, AI_CONFIG.icebreaker.afterOpenerChance);
+  }
 
   if (Math.random() >= chance) {
     return { join: false, reason: "gagal roll" };

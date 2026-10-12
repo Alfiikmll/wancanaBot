@@ -196,7 +196,7 @@ export async function handleMessage(
     if (messageText === "/aireset") {
       if (!isBotAdmin(userId)) {
         await sock.sendMessage(chatId, {
-          text: "⛔ Hanya admin bot yang bisa menghapus ingatan.",
+          text: "⛔ Hanya dev wancana yang bisa menghapus ingatan.",
         });
 
         return;
@@ -219,7 +219,7 @@ export async function handleMessage(
     if (argument === "tag" || argument === "auto") {
       if (!isBotAdmin(userId)) {
         await sock.sendMessage(chatId, {
-          text: "⛔ Hanya admin bot yang bisa mengubah mode AI.",
+          text: "⛔ Hanya wancana dev yang bisa mengubah mode AI.",
         });
 
         return;
@@ -230,7 +230,7 @@ export async function handleMessage(
       await sock.sendMessage(chatId, {
         text:
           argument === "auto"
-            ? "🤖 Mode *AUTO*: Wancana akan menjawab kalau dipanggil dan kadang ikut nimbrung sendiri 😎"
+            ? "🤖 Mode *AUTO*: Wancana mode auto  😎"
             : "🤖 Mode *TAG*: Wancana hanya menjawab kalau di-tag, dibalas, atau pakai /ai 🤫",
       });
 

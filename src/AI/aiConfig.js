@@ -19,26 +19,28 @@ export const AI_CONFIG = {
     // Mode awal untuk grup yang belum pernah diatur: "tag" atau "auto"
     defaultMode: "tag",
     // Peluang nimbrung ke pesan biasa (0.05 = 5%)
-    baseChance: 0.05,
+    baseChance: 0.5,
     // Peluang nimbrung kalau pesan mengandung tanda tanya
-    questionChance: 0.15,
+    questionChance: 1,
     // Peluang nimbrung kalau pesan mengandung kata pemicu
     triggerChance: 0.9,
     // Minimal jumlah pesan baru sejak bot terakhir bicara
     // (kata pemicu boleh melewati aturan ini)
     minMessagesBetween: 4,
     // Jeda minimal antar nimbrung per grup (detik)
-    cooldownSeconds: 40,
+    cooldownSeconds: 3,
     // Batas nimbrung per grup per jam
     maxPerHour: 15,
     // Pesan yang lebih pendek dari ini diabaikan
-    minTextLength: 4,
+    minTextLength: 1,
     // Kata/frasa pemicu (tidak peka huruf besar-kecil)
     triggerWords: [
       "wancana",
+      "wancana",
+      "nimbrung",
       "bot",
       "ai",
-      "gemini",
+      "big bos",
       "game",
       "mmorpg",
       "mmo",
@@ -52,6 +54,36 @@ export const AI_CONFIG = {
       "ngopi",
       "main ps",
       "ps",
+    ],
+  },
+
+  // Bot membuka topik sendiri kalau grup sepi.
+  // Hanya berlaku untuk grup yang mode-nya "auto" (/aimode auto).
+  icebreaker: {
+    enabled: true,
+    // Grup dianggap sepi kalau tidak ada pesan masuk selama ini (menit)
+    idleMinutes: 180,
+    // Seberapa sering bot mengecek grup (menit)
+    checkEveryMinutes: 10,
+    // Jam tenang: bot tidak membuka topik di jam ini (0-23, zona waktu di bawah)
+    quietHoursStart: 23,
+    quietHoursEnd: 7,
+    timeZone: "Asia/Jakarta",
+    // Maksimal bot membuka topik per grup per hari
+    maxPerDay: 3,
+    // Setelah bot membuka topik, peluang membalas obrolan berikutnya naik
+    // selama beberapa menit (supaya balasan member tidak dicuekin)
+    afterOpenerChance: 0.9,
+    afterOpenerMinutes: 10,
+    // Ide topik acak yang diselipkan ke Gemini supaya tidak monoton
+    topicIdeas: [
+      "jokes gaul satir",
+      "tempat nongrong terbaik",
+      "rekomendasi game seru untuk dimainkan bareng",
+      "makanan manis atau ice cream favorit",
+      "pertanyaan 'pilih mana' yang lucu dan ringan",
+      "hal random lucu yang terjadi hari ini",
+      "game lama yang bikin nostalgia",
     ],
   },
 
