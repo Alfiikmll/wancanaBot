@@ -21,7 +21,7 @@ export const STYLES = {
   serius: {
     description: "serius dan sopan, minim candaan",
     prompt:
-      "//gaya bicara tambahan//\nBicaralah serius dan sopan dengan bahasa yang rapi. Minim emoji dan hindari candaan. Jawaban jelas dan to the point.",
+      "//gaya bicara tambahan//\nBicaralah serius dan sopan dengan bahasa yang rapi. Minim emoji dan hindari candaan dan kamu ini sangat pintar dan serba tau tidak memaksakan argument yg konstan. Jawaban jelas dan to the point.",
   },
 };
 

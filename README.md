@@ -104,60 +104,7 @@ Jadi perintah Tebak Gambar sengaja belum dimasukkan sebagai command aktif agar m
 
 ---
 
-## 📁 Struktur Project
 
-```text
-wancanaBot/
-├── assets/
-│   └── wancanaBanner.jfif
-├── src/
-│   ├── AI/
-│   │   ├── aiChat.js
-│   │   └── aiCooldown.js
-│   ├── commands/
-│   │   ├── daftar.js
-│   │   ├── inventory.js
-│   │   ├── item.js
-│   │   ├── joran.js
-│   │   ├── leaderboard.js
-│   │   ├── lelang.js
-│   │   ├── menu.js
-│   │   ├── pakaiItem.js
-│   │   ├── pilihJoran.js
-│   │   ├── profile.js
-│   │   └── tebakGambar.js
-│   ├── databases/
-│   │   ├── database.js
-│   │   └── testDatabase.js
-│   ├── handlers/
-│   │   └── aiHandlers.js
-│   ├── systems/
-│   │   ├── auctionSystem.js
-│   │   ├── coinExchangeSystem.js
-│   │   ├── economySystem.js
-│   │   ├── fishingCooldown.js
-│   │   ├── fishingSystem.js
-│   │   ├── gachaSystem.js
-│   │   ├── inventorySystem.js
-│   │   ├── itemBuffSystem.js
-│   │   ├── itemSystem.js
-│   │   ├── playerRodSystem.js
-│   │   ├── raritySystem.js
-│   │   ├── rodPurchaseSystem.js
-│   │   ├── rodSkillSystem.js
-│   │   ├── rodSystem.js
-│   │   ├── sellFishSystem.js
-│   │   └── weightSystem.js
-│   ├── test/
-│   │   └── berbagai file pengujian
-│   ├── bot.js
-│   └── index.js
-├── database.sql
-├── package.json
-├── package-lock.json
-├── .gitignore
-└── README.md
-```
 
 ---
 
@@ -278,33 +225,9 @@ Ketiganya sudah tercantum di `.gitignore`.
 
 ---
 
-## 🧪 Pengujian
 
-Project menyediakan beberapa test script di:
 
-```text
-src/test/
-```
 
-Contoh:
-
-```bash
-node src/test/testDatabase.js
-node src/test/testFishing.js
-node src/test/testFishingRod.js
-node src/test/testFishingIntegration.js
-node src/test/testRodSkill.js
-node src/test/testSkillEffect.js
-node src/test/testItemBuff.js
-node src/test/testAuction.js
-```
-
-Catatan:
-
-- Beberapa test menggunakan database nyata.
-- Beberapa test dapat menambah/mengubah data pemain atau inventory.
-- Jalankan test dari database development/testing, bukan database produksi.
-- `testAuctionBid.js` saat ini masih merupakan test development dan belum menjadi acuan utama penggunaan bot.
 
 ---
 
